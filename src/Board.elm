@@ -23,7 +23,7 @@ initialModel =
     let
         size : Int
         size =
-            5
+            9
 
         slots : SlotGrid
         slots =
@@ -41,6 +41,7 @@ type Msg
     = CreateNewBoard
     | AddTile Position
     | InsertTile Position Tile
+    | GenerateTile Position TileType
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -50,7 +51,7 @@ update msg model =
             let
                 startGameTiles : List ( Maybe Tile, Position )
                 startGameTiles =
-                    [ ( Just Space, ( 0, 0 ) )
+                    [ ( Just { tileType = Wall, rotation = None }, ( 0, 0 ) )
                     ]
             in
             ( updateBoard startGameTiles initialModel, Cmd.none )
@@ -60,6 +61,13 @@ update msg model =
 
         InsertTile position tile ->
             ( updateBoard [ ( Just tile, position ) ] model, Cmd.none )
+
+        GenerateTile position tileType ->
+            let
+                generatedTile =
+                    { tileType = tileType, rotation = Once }
+            in
+            update (InsertTile position generatedTile) model
 
 
 
@@ -112,8 +120,6 @@ getYCoords boardSize index slotRow =
 
 -- BOARD
 -- Data
--- createEmptyBoard : Model
--- createEmptyBoard =
 
 
 updateBoard : List ( Maybe Tile, Position ) -> Model -> Model
@@ -225,27 +231,21 @@ initialSlot =
     }
 
 
+slotSize : Int
+slotSize =
+    65
+
+
 renderSlot : Slot -> Element msg
 renderSlot slot =
     el
-        [ width (px 50)
-        , height (px 50)
-        , Background.color (rgb255 100 100 100)
-        , Font.size 12
-        , Font.center
-        , centerX
-        , centerY
+        [ width (px slotSize)
+        , height (px slotSize)
         ]
     <|
         case slot.tile of
             Nothing ->
-                text
-                    ("("
-                        ++ String.fromInt (Tuple.first slot.position)
-                        ++ ", "
-                        ++ String.fromInt (Tuple.second slot.position)
-                        ++ ")"
-                    )
+                none
 
             Just tile ->
                 renderTile tile
@@ -255,12 +255,27 @@ renderSlot slot =
 -- TILES
 
 
-type Tile
+type alias Tile =
+    { tileType : TileType
+
+    -- , players : List (Maybe Player)
+    , rotation : Rotation
+    }
+
+
+type TileType
     = Space -- No Border
     | Wall -- One Border
     | Corner -- Two Borders next to each other
     | Hall -- Two Borders opposite each other
     | DeadEnd -- Three Borders
+
+
+type Rotation
+    = None
+    | Once
+    | Twice
+    | Thrice
 
 
 type alias TileBorder =
@@ -281,10 +296,10 @@ type alias BorderWidth =
 
 generateTile : Position -> Cmd Msg
 generateTile position =
-    Random.generate (InsertTile position) tileGenerator
+    Random.generate (GenerateTile position) tileGenerator
 
 
-tileGenerator : Random.Generator Tile
+tileGenerator : Random.Generator TileType
 tileGenerator =
     Random.uniform Space [ Wall, Corner, Hall, DeadEnd ]
 
@@ -295,7 +310,7 @@ tileGenerator =
 
 renderTile : Tile -> Element msg
 renderTile tile =
-    case tile of
+    case tile.tileType of
         Wall ->
             basicTile
                 (Border.widthEach
@@ -339,8 +354,8 @@ basicTile border =
         , border
         , centerX
         , centerY
-        , height (px 50)
-        , width (px 50)
+        , height (px slotSize)
+        , width (px slotSize)
         ]
         none
 
